@@ -1,0 +1,28 @@
+{% comment %} Recursive tree renderer. Expects 'node' {% endcomment %}
+{% if node.type == 'dir' %}
+  {% if node.name %}
+    <details class="dir">
+      <summary>
+        <span class="folder">📁 {{ node.name }}</span>
+        <span class="muted">({{ node.size|filesizeformat }})</span>
+      </summary>
+      <div class="dir-children">
+        {% for child in node.children %}
+          {% include 'demos/_tree.html' with node=child %}
+        {% endfor %}
+      </div>
+    </details>
+  {% else %}
+    {# root: render children without summary #}
+    <div class="dir-children root">
+      {% for child in node.children %}
+        {% include 'demos/_tree.html' with node=child %}
+      {% endfor %}
+    </div>
+  {% endif %}
+{% else %}
+  <div class="file">
+    <code>{{ node.relpath }}</code>
+    <span class="size">{{ node.size|filesizeformat }}</span>
+  </div>
+{% endif %}

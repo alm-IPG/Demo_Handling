@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}{{ demo.title }} – Demo Portal{% endblock %}
+{% block content %}
+  <article class="detail">
+    <header class="detail-header">
+      {% if demo.thumbnail %}
+        <img class="hero" src="/thumb/{{ demo.slug }}/" alt="thumbnail" />
+      {% endif %}
+      <div>
+        <h1>{{ demo.title }}</h1>
+        <p>{{ demo.summary }}</p>
+        <div class="meta">
+          {% if cm_bucket %}<span class="cm">{{ cm_bucket }}</span>{% endif %}
+          {% for t in demo.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+        </div>
+
+        <div class="actions">
+          <a class="btn" href="/demo/{{ demo.slug }}/download-all/">Download all (zip)</a>
+          {% if demo %}
+          <form method="post" action="{% url 'resync_demo' demo.slug %}" style="display:inline-block; margin-left:8px;">
+            {% csrf_token %}
+            <button class="btn" type="submit">Resync this demo</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    {% if demo.files_meta %}
+      <section>
+        <h2>Highlighted files</h2>
+        <ul class="highlights">
+          {% for f in demo.files_meta %}
+            <li>
+              <code>{{ f.path }}</code>
+              <div class="desc">{{ f.description }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    <section>
+      <h2>All files</h2>
+      {% include 'demos/_tree.html' with node=tree %}
+    </section>
+  </article>
+{% endblock %}

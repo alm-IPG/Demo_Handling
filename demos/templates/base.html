@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Demo Portal{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="logo">Demo Portal</a>
+
+    <!-- Search form -->
+    <form class="search" method="get" action="/">
+      <input type="text" name="q" value="{{ q|default:'' }}" placeholder="Search demos..." />
+      <button>Search</button>
+    </form>
+
+    <!-- Resync button -->
+    <form method="post" action="/resync/" style="margin-left: auto;">
+      {% csrf_token %}
+      <button class="btn" style="margin-left:12px;">Resync from SVN</button>
+    </form>
+  </header>
+
+  <main class="container">
+    <!-- Flash messages -->
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="msg {{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

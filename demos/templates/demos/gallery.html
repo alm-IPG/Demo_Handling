@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Demos – Demo Portal{% endblock %}
+{% block content %}
+  <div class="filters">
+    <form method="get">
+      <select name="tag" onchange="this.form.submit()">
+        <option value="">All tags</option>
+        {% for t in all_tags %}
+          <option value="{{ t }}" {% if t == tag %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+      <select name="cm" onchange="this.form.submit()">
+        <option value="">All CM versions</option>
+        {% for c in all_cm %}
+          <option value="{{ c }}" {% if c == cm %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <div class="grid">
+    {% for d in demos %}
+      <a class="card" href="/demo/{{ d.slug }}/">
+        {% if d.thumbnail %}
+          <img src="/thumb/{{ d.slug }}/" alt="thumbnail" />
+        {% else %}
+          <div class="thumb-placeholder">No image</div>
+        {% endif %}
+        <div class="card-body">
+          <h3>{{ d.title }}</h3>
+          <p class="summary">{{ d.summary }}</p>
+          <div class="meta">
+            {% if d.cm_bucket %}<span class="cm">{{ d.cm_bucket }}</span>{% endif %}
+            {% for t in d.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+          </div>
+        </div>
+      </a>
+    {% empty %}
+      <p>No demos found.</p>
+    {% endfor %}
+  </div>
+{% endblock %}
