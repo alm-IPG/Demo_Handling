@@ -1,20 +1,25 @@
 # --- Python ---
-__pycache__/        # compiled Python bytecode
-*.py[cod]           # more compiled Python files
+/demos/__pycache__
+*.py[cod]
 
 # --- Virtual environments ---
-venv/               # your virtualenv folder (name may differ)
+venv/
 
 # --- Django / Project data ---
-db.sqlite3          # local dev database
-*.log               # log files
-svn_cache/          # your svn_cache folder
-media/              # user uploads (optional, if generated)
-staticfiles/        # collected static files (optional, if generated)
-thumb/              # thumbnail cache (if generated)
+db.sqlite3
+*.log
+/svn_cache
+media/
+staticfiles/
+thumb/
 
 # --- OS / Editor junk ---
-.DS_Store           # MacOS finder cache
-Thumbs.db           # Windows explorer cache
-.vscode/            # VSCode project settings
-.idea/              # PyCharm/IntelliJ project settings
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+.gitignore.bak
+
+demos/__pycache__/views.cpython-311.pyc
+*.pyc

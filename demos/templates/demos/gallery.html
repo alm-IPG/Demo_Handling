@@ -30,8 +30,11 @@
           <h3>{{ d.title }}</h3>
           <p class="summary">{{ d.summary }}</p>
           <div class="meta">
-            {% if d.cm_bucket %}<span class="cm">{{ d.cm_bucket }}</span>{% endif %}
-            {% for t in d.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+            <div class="tags">
+              {% if d.cm_bucket %}<span class="cm">{{ d.cm_bucket }}</span>{% endif %}
+              {% for t in d.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+            </div>
+            {% if d.state %}<span class="pill state">{{ d.state }}</span>{% endif %}
           </div>
         </div>
       </a>

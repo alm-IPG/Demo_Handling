@@ -20,6 +20,8 @@ class DemoMeta:
     thumbnail: Path | None
     exclude: List[str]
     files_meta: List[Dict[str, Any]]
+    state: str                
+    owner: str  
 
 _slugify_re = re.compile(r'[^a-z0-9]+')
 
@@ -59,6 +61,8 @@ def load_demos(root: Path) -> List[DemoMeta]:
         summary = meta.get('summary', '')
         cmv = meta.get('car_maker_version', '')
         tags = meta.get('tags', [])
+        state = (meta.get('state') or 'To be updated').strip()
+        owner = (meta.get('owner') or 'not assigned').strip()
 
         # Always apply DEFAULT_EXCLUDES and then add any demo-specific ones
         exclude = list(DEFAULT_EXCLUDES)
@@ -93,6 +97,8 @@ def load_demos(root: Path) -> List[DemoMeta]:
             thumbnail=thumb,
             exclude=exclude,
             files_meta=files_meta,
+            state=state,                   
+            owner=owner,   
         ))
     return demos
 
@@ -254,3 +260,5 @@ def sync_one_from_svn(root_url: str, cache_root: Path, slug: str):
     src_url = f"{root_url.rstrip('/')}/{repo_name}"
     dst = cache_root / repo_name  # keep original name in cache
     svn_export_dir(src_url, dst)  # existing helper
+
+

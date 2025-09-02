@@ -118,7 +118,7 @@ def thumb(request, slug: str):
     ctype, _ = mimetypes.guess_type(d.thumbnail.name)
     return FileResponse(open(d.thumbnail, 'rb'), content_type=ctype or 'image/png')
 
-
+@require_POST
 def resync(request: HttpRequest):
     use_svn = getattr(settings, 'USE_SVN', False)
     if not use_svn:
@@ -134,7 +134,7 @@ def resync(request: HttpRequest):
         messages.error(request, f"Resync failed: {e}")
     return redirect('gallery')
 
-
+@require_POST
 def resync_demo(request, slug: str):
     use_svn = getattr(settings, 'USE_SVN', False)
     if not use_svn:

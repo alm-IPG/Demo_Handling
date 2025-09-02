@@ -2,10 +2,13 @@
 {% block title %}{{ demo.title }} – Demo Portal{% endblock %}
 {% block content %}
   <article class="detail">
-    <header class="detail-header">
+    <header class="detail-header three-col">
       {% if demo.thumbnail %}
         <img class="hero" src="/thumb/{{ demo.slug }}/" alt="thumbnail" />
+      {% else %}
+        <div class="hero placeholder"></div>
       {% endif %}
+
       <div>
         <h1>{{ demo.title }}</h1>
         <p>{{ demo.summary }}</p>
@@ -24,6 +27,15 @@
           {% endif %}
         </div>
       </div>
+
+      <aside class="info-panel">
+        <h3>Details</h3>
+        <dl class="kv">
+          <dt>State</dt><dd><span class="pill state {{ demo.state|slugify }}">{{ demo.state }}</span></dd>
+          <dt>Owner</dt><dd>{{ demo.owner }}</dd>
+          <dt>CarMaker</dt><dd>{{ cm_bucket }}</dd>
+        </dl>
+      </aside>
     </header>
 
     {% if demo.files_meta %}
