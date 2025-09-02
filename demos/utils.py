@@ -2,6 +2,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Dict, Any
+from datetime import datetime
+import json
 import re
 import fnmatch
 import yaml
@@ -261,4 +263,24 @@ def sync_one_from_svn(root_url: str, cache_root: Path, slug: str):
     dst = cache_root / repo_name  # keep original name in cache
     svn_export_dir(src_url, dst)  # existing helper
 
+def comments_path(demo_root: Path) -> Path:
+    return demo_root / 'comments.json'
 
+def load_comments(demo_root: Path) -> list[dict]:
+    f = comments_path(demo_root)
+    if not f.exists():
+        return []
+    try:
+        return json.loads(f.read_text(encoding='utf-8'))
+    except Exception:
+        return []
+
+def add_comment(demo_root: Path, user: str, text: str):
+    f = comments_path(demo_root)
+    comments = load_comments(demo_root)
+    comments.append({
+        "user": user,
+        "text": text.strip(),
+        "timestamp": datetime.utcnow().isoformat()
+    })
+    f.write_text(json.dumps(comments, indent=2), encoding='utf-8')

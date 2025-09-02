@@ -8,4 +8,5 @@ urlpatterns = [
     path('thumb/<slug:slug>/', views.thumb, name='thumb'),
     path('resync/', views.resync, name='resync'),                       # global
     path('resync/<slug:slug>/', views.resync_demo, name='resync_demo'), # per-demo
+    path('demo/<slug:slug>/comment/', views.post_comment, name='post_comment'),
 ]

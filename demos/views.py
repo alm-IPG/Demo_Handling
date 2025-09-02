@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from .utils import load_demos, list_tree_for_ui, iter_included_files
 from django.views.decorators.http import require_POST
 from django.contrib import messages
+from .utils import load_comments, add_comment
 import io
 import zipfile
 import mimetypes 
@@ -70,10 +71,12 @@ def detail(request: HttpRequest, slug: str) -> HttpResponse:
         raise Http404('Demo not found')
     file_tree = build_tree(d.root, d.exclude)
     cm_bucket = f"CM{str(d.car_maker_version).split('.')[0]}" if d.car_maker_version else ''
+    comments = load_comments(d.root)
     return render(request, 'demos/detail.html', {
         'demo': d,
         'cm_bucket': cm_bucket,
         'tree': file_tree,
+        'comments': comments,
     })
 
 def download_all(request: HttpRequest, slug: str) -> HttpResponse:
@@ -148,4 +151,18 @@ def resync_demo(request, slug: str):
         messages.success(request, f"Resynced '{slug}' from SVN successfully.")
     except Exception as e:
         messages.error(request, f"Resync failed for '{slug}': {e}")
+    return redirect('detail', slug=slug)
+
+@require_POST
+def post_comment(request, slug: str):
+    demos = _get_demos()
+    d = next((x for x in demos if x.slug == slug), None)
+    if not d:
+        raise Http404("Demo not found")
+
+    text = request.POST.get("comment", "").strip()
+    if text:
+        # TODO: hook into real user auth; for now use 'alm'
+        add_comment(d.root, "alm", text)
+
     return redirect('detail', slug=slug)

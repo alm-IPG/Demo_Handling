@@ -123,3 +123,11 @@ body { font-family: system-ui, sans-serif; margin: 0; background: #0b0c0f; color
     grid-column: 1 / -1; /* full width below */
   }
 }
+
+.comments { margin-top: 24px; }
+.comment-list { list-style: none; padding: 0; margin: 0 0 16px; }
+.comment-list li { border: 1px solid #23262d; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; background:#111318; }
+.comment-list .meta { font-size: 12px; color:#8b93a1; margin-bottom:4px; }
+.comment-list .text { white-space: pre-wrap; }
+.comment-form textarea { width:100%; padding:6px 8px; border-radius:6px; border:1px solid #333842; background:#151820; color:#e8eaed; }
+.comment-form button { margin-top:6px; }
