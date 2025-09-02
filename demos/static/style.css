@@ -5,29 +5,66 @@ body { font-family: system-ui, sans-serif; margin: 0; background: #0b0c0f; color
 .search button { margin-left: 8px; padding: 6px 12px; border-radius: 6px; border: 0; background: #3557ff; color: white; cursor: pointer; }
 .container { padding: 24px; }
 .filters { margin-bottom: 16px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-.card { display: block; border: 1px solid #23262d; border-radius: 12px; overflow: hidden; text-decoration: none; color: inherit; background: #111318; }
+
+/* Gallery grid: stretch items so cards can fill full height */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: stretch;               /* NEW */
+}
+
+/* Card becomes a column flexbox that fills its grid cell */
+.card {
+  display: flex;                      /* CHANGED: was display:block */
+  flex-direction: column;             /* NEW */
+  height: 100%;                       /* NEW: fill grid row height */
+  border: 1px solid #23262d;
+  border-radius: 12px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  background: #111318;
+}
+
+/* Fixed thumbnail height stays the same */
 .card img { width: 100%; height: 160px; object-fit: cover; background: #0f1116; }
 .thumb-placeholder { height: 160px; display: grid; place-items: center; background: #0f1116; color: #8b93a1; }
-.card-body { padding: 12px; }
-.card h3 { margin: 0 0 6px; font-size: 1.1rem; }
-.summary { color: #aab2c0; min-height: 2.6em; }
 
-/* Meta row on cards: tags on the left, state badge on the right */
+/* Card body becomes a flex column so we can pin tags to bottom */
+.card-body {
+  display: flex;                      /* NEW */
+  flex-direction: column;             /* NEW */
+  padding: 12px;
+  flex: 1 1 auto;                     /* NEW: grow to fill remaining height */
+}
+
+.card h3 { margin: 0 0 6px; font-size: 1.1rem; }
+
+/* 4-line clamp with ellipsis */
+.summary {
+  color: #aab2c0;
+  display: -webkit-box;               /* NEW */
+  -webkit-line-clamp: 4;              /* NEW: show max 4 lines */
+  -webkit-box-orient: vertical;       /* NEW */
+  overflow: hidden;                   /* NEW */
+  min-height: calc(1em * 1.4 * 4);    /* NEW: reserve space for ~4 lines */
+}
+
+/* The meta row sits at the bottom of the card body */
 .meta {
-  margin-top: 6px;
+  margin-top: auto;                   /* NEW: push to bottom */
   display: flex;
-  justify-content: space-between; /* push ends apart */
+  justify-content: flex-start;        /* CHANGED: tags don’t spread apart */
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap; /* allow tags to wrap while pill stays right */
-}
-.meta .tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap; /* tags can wrap to next line independently */
+  flex-wrap: wrap;
 }
 
+/* Optional container for tags */
+.meta .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Pills */
 .tag, .cm { font-size: 12px; padding: 2px 6px; border-radius: 999px; background: #1a2130; border: 1px solid #293244; color: #c9d1e0; }
 
 .detail-header {
@@ -56,7 +93,6 @@ body { font-family: system-ui, sans-serif; margin: 0; background: #0b0c0f; color
 .file .size { color: #aab2c0; min-width: 80px; text-align: right; }
 .actions form { display: inline; }
 .actions .btn { margin-left: 6px; }
-
 
 /* right-side panel */
 .info-panel {
