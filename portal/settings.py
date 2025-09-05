@@ -129,16 +129,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ---- CUSTOM SETTINGS ----
 # Path to your demos on Windows. Raw string avoids backslash escapes.
-DEMOS_ROOT = os.environ.get('DEMOS_ROOT', r'C:\SVN-Demos')
+# DEMOS_ROOT = os.environ.get('DEMOS_ROOT', r'C:\SVN-Demos')
 
 # Download size cap (ZIP) = 5 GB
 MAX_ZIP_BYTES = 5 * 1024 * 1024 * 1024
 
 # ---- SVN SETTINGS ----
 USE_SVN = True  # switch back to False to use local DEMOS_ROOT again
+USE_SVN_METADATA_ONLY = True  # always refresh on page load
+
 
 # Your repository root (note the three slashes after file:)
 SVN_ROOT_URL = r'file:///C:/SVN-Demos-Repository/trunk'
 
 # Where we export a fresh working copy (no .svn) for the portal to read
-CACHE_ROOT = str((BASE_DIR / 'svn_cache').resolve())
+CACHE_ROOT = str((BASE_DIR / 'svn_cache').resolve()) #To be removed
+THUMB_CACHE = str((BASE_DIR / 'thumb_cache').resolve())

@@ -5,28 +5,23 @@ from django.shortcuts import render, redirect
 from .utils import load_demos, list_tree_for_ui, iter_included_files
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-from .utils import load_comments, add_comment
+from .utils import (
+    load_demos_from_svn_meta, svn_list_tree, build_tree_from_list,
+    load_comments_from_svn
+)
 import io
 import zipfile
 import mimetypes 
 
 
 def _get_demos():
-    use_svn = getattr(settings, 'USE_SVN', False)
-    if use_svn:
-        cache_root = Path(getattr(settings, 'CACHE_ROOT'))
-        if not cache_root.exists() or not any(cache_root.iterdir()):
-            # Empty cache? Do a first-time sync.
-            from .utils import sync_all_from_svn, load_demos_from_cache
-            root_url = getattr(settings, 'SVN_ROOT_URL')
-            sync_all_from_svn(root_url, cache_root)
-        from .utils import load_demos_from_cache
-        return load_demos_from_cache(cache_root)
-    else:
-        root = Path(getattr(settings, 'DEMOS_ROOT', r'C:\SVN-Demos'))
-        if not root.exists():
-            raise RuntimeError(f'DEMOS_ROOT not found: {root}')
-        return load_demos(root)
+    # Always fetch fresh metadata on each request
+    if getattr(settings, 'USE_SVN', False) and getattr(settings, 'USE_SVN_METADATA_ONLY', False):
+        root_url = getattr(settings, 'SVN_ROOT_URL')
+        thumb_cache = Path(getattr(settings, 'THUMB_CACHE'))
+        return load_demos_from_svn_meta(root_url, thumb_cache)
+    raise RuntimeError("Configure USE_SVN=True and USE_SVN_METADATA_ONLY=True for metadata-only mode.")
+
 
 def gallery(request: HttpRequest) -> HttpResponse:
     demos = _get_demos()
@@ -64,105 +59,25 @@ def gallery(request: HttpRequest) -> HttpResponse:
     })
 
 def detail(request: HttpRequest, slug: str) -> HttpResponse:
-    from .utils import load_demos, list_tree_for_ui, iter_included_files, build_tree
     demos = _get_demos()
     d = next((x for x in demos if x.slug == slug), None)
     if not d:
         raise Http404('Demo not found')
-    file_tree = build_tree(d.root, d.exclude)
+
+    flat = svn_list_tree(d.repo_url)                 # names + sizes from SVN
+    file_tree = build_tree_from_list(flat, d.exclude)
     cm_bucket = f"CM{str(d.car_maker_version).split('.')[0]}" if d.car_maker_version else ''
-    comments = load_comments(d.root)
+    comments = load_comments_from_svn(d.repo_url)    # READ-ONLY
+
     return render(request, 'demos/detail.html', {
-        'demo': d,
-        'cm_bucket': cm_bucket,
-        'tree': file_tree,
-        'comments': comments,
+        'demo': d, 'cm_bucket': cm_bucket, 'tree': file_tree, 'comments': comments
     })
 
-def download_all(request: HttpRequest, slug: str) -> HttpResponse:
-    demos = _get_demos()
-    d = next((x for x in demos if x.slug == slug), None)
-    if not d:
-        raise Http404('Demo not found')
-
-    total = 0
-    files = []
-    max_bytes = getattr(settings, 'MAX_ZIP_BYTES', 5 * 1024 * 1024 * 1024)
-
-    for f in iter_included_files(d.root, d.exclude):
-        size = f.stat().st_size
-        total += size
-        files.append((f, size))
-        if total > max_bytes:
-            return HttpResponse('Selection exceeds 5 GB cap. Narrow contents or adjust settings.', status=413)
-
-    def zip_generator():
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, mode='w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-            for f, _ in files:
-                arcname = f.relative_to(d.root).as_posix()
-                zf.write(f, arcname)
-        buf.seek(0)
-        chunk = buf.read(1024 * 1024)
-        while chunk:
-            yield chunk
-            chunk = buf.read(1024 * 1024)
-
-    filename = f"{d.slug}.zip"
-    resp = StreamingHttpResponse(zip_generator(), content_type='application/zip')
-    resp['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return resp
 
 def thumb(request, slug: str):
     demos = _get_demos()
     d = next((x for x in demos if x.slug == slug), None)
-    if not d or not d.thumbnail or not d.thumbnail.exists():
+    if not d or not d.thumbnail_path or not d.thumbnail_path.exists():
         raise Http404('Thumbnail not found')
-    ctype, _ = mimetypes.guess_type(d.thumbnail.name)
-    return FileResponse(open(d.thumbnail, 'rb'), content_type=ctype or 'image/png')
+    return FileResponse(open(d.thumbnail_path, 'rb'))
 
-@require_POST
-def resync(request: HttpRequest):
-    use_svn = getattr(settings, 'USE_SVN', False)
-    if not use_svn:
-        messages.error(request, "SVN mode is disabled (USE_SVN=False).")
-        return redirect('gallery')
-    try:
-        from .utils import sync_all_from_svn
-        root_url = getattr(settings, 'SVN_ROOT_URL')
-        cache_root = Path(getattr(settings, 'CACHE_ROOT'))
-        sync_all_from_svn(root_url, cache_root)
-        messages.success(request, "Resynced from SVN successfully.")
-    except Exception as e:
-        messages.error(request, f"Resync failed: {e}")
-    return redirect('gallery')
-
-@require_POST
-def resync_demo(request, slug: str):
-    use_svn = getattr(settings, 'USE_SVN', False)
-    if not use_svn:
-        messages.error(request, "SVN mode is disabled (USE_SVN=False).")
-        return redirect('detail', slug=slug)
-    try:
-        from .utils import sync_one_from_svn
-        root_url = getattr(settings, 'SVN_ROOT_URL')
-        cache_root = Path(getattr(settings, 'CACHE_ROOT'))
-        sync_one_from_svn(root_url, cache_root, slug)
-        messages.success(request, f"Resynced '{slug}' from SVN successfully.")
-    except Exception as e:
-        messages.error(request, f"Resync failed for '{slug}': {e}")
-    return redirect('detail', slug=slug)
-
-@require_POST
-def post_comment(request, slug: str):
-    demos = _get_demos()
-    d = next((x for x in demos if x.slug == slug), None)
-    if not d:
-        raise Http404("Demo not found")
-
-    text = request.POST.get("comment", "").strip()
-    if text:
-        # TODO: hook into real user auth; for now use 'alm'
-        add_comment(d.root, "alm", text)
-
-    return redirect('detail', slug=slug)

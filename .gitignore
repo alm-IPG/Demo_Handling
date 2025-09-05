@@ -23,3 +23,6 @@ Thumbs.db
 
 demos/__pycache__/views.cpython-311.pyc
 *.pyc
+
+/thumb_cache
+/demos/__pycache__

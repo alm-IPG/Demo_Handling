@@ -1,14 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
-import json
-import re
-import fnmatch
-import yaml
-import subprocess
-import shutil
+import re, shutil, fnmatch, yaml, subprocess, json, xml.etree.ElementTree as ET
 
 
 @dataclass
@@ -18,31 +13,79 @@ class DemoMeta:
     summary: str
     car_maker_version: str
     tags: List[str]
-    root: Path
-    thumbnail: Path | None
+    state: str
+    owner: str
+    repo_name: str                 # top-level dir in SVN
+    repo_url: str                  # full SVN URL to that dir
+    thumbnail_path: Optional[Path] # local cached thumb or None
     exclude: List[str]
     files_meta: List[Dict[str, Any]]
-    state: str                
-    owner: str  
 
 _slugify_re = re.compile(r'[^a-z0-9]+')
-
 def slugify(name: str) -> str:
     return _slugify_re.sub('-', name.lower()).strip('-')
 
-# Default excludes – keep globs, but we'll also do a path-segment check for ".svn"
 DEFAULT_EXCLUDES = [
-    '.svn',            # top-level .svn folder guard (segment check below will also catch nested)
-    '.svn/**',
-    '**/.svn/**',
-    '**/.road_cache/**',
-    '**/.settings/**',
-    '**/*.tmp',
-    '**/SimOutput/**',
-    '**/slprj/**',
+    '**/.svn/**', '**/.road_cache/**', '**/.settings/**',
+    '**/*.tmp', '**/SimOutput/**', '**/slprj/**',
 ]
 
-THUMBNAIL_CANDIDATES = ['thumbnail.png', 'thumbnail.jpg', 'thumbnail.jpeg', 'thumbnail.webp']
+THUMBNAIL_CANDIDATES = ['thumbnail.png','thumbnail.jpg','thumbnail.jpeg','thumbnail.webp']
+
+
+def load_demos_from_svn_meta(root_url: str, thumb_cache: Path) -> List[DemoMeta]:
+    demos: List[DemoMeta] = []
+    for name in svn_ls_dirs(root_url):
+        slug = slugify(name)
+        demo_url = f"{root_url.rstrip('/')}/{name}"
+        yml_url = f"{demo_url}/demo.yaml"
+
+        # demo.yaml
+        raw_yaml = svn_cat_text(yml_url) or ""
+        meta = yaml.safe_load(raw_yaml) if raw_yaml else {}
+        if not isinstance(meta, dict): meta = {}
+
+        title = meta.get('title', name)
+        summary = meta.get('summary', '')
+        cmv = meta.get('car_maker_version', '')
+        tags = meta.get('tags', []) or []
+        state = (meta.get('state') or 'To be updated').strip()
+        owner = (meta.get('owner') or 'not assigned').strip()
+        extra_excl = meta.get('exclude') or []
+        files_meta = meta.get('files', []) if isinstance(meta.get('files', []), list) else []
+
+        exclude = list(DEFAULT_EXCLUDES)
+        if isinstance(extra_excl, list): exclude.extend(extra_excl)
+
+        # thumbnail (fetch once; keep cached file)
+        thumb_local: Optional[Path] = None
+        for cand in THUMBNAIL_CANDIDATES:
+            b = svn_cat_binary(f"{demo_url}/{cand}")
+            if b:
+                ext = cand.split('.')[-1].lower()
+                if ext not in ('png','jpg','jpeg','webp'): ext = 'png'
+                path = thumb_cache_path(thumb_cache, slug, ext)
+                if not path.exists():  # cache it lazily
+                    path.write_bytes(b)
+                thumb_local = path
+                break
+
+        demos.append(DemoMeta(
+            slug=slug,
+            title=title,
+            summary=summary,
+            car_maker_version=cmv,
+            tags=tags,
+            state=state,
+            owner=owner,
+            repo_name=name,
+            repo_url=demo_url,
+            thumbnail_path=thumb_local,
+            exclude=exclude,
+            files_meta=files_meta
+        ))
+    return demos
+
 
 def load_demos(root: Path) -> List[DemoMeta]:
     demos: List[DemoMeta] = []
@@ -196,22 +239,27 @@ def build_tree(root: Path, exclude_globs: List[str]):
 
 
 def _run(cmd: list[str]) -> subprocess.CompletedProcess:
-    # Helper to run svn safely; raises with readable message
     try:
         return subprocess.run(cmd, check=True, text=True, capture_output=True)
     except subprocess.CalledProcessError as e:
-        msg = f"Command failed: {' '.join(cmd)}\nSTDOUT:\n{e.stdout}\nSTDERR:\n{e.stderr}"
-        raise RuntimeError(msg) from e
+        raise RuntimeError(f"Command failed: {' '.join(cmd)}\n--- STDOUT ---\n{e.stdout}\n--- STDERR ---\n{e.stderr}")
 
 def svn_ls_dirs(root_url: str) -> list[str]:
-    """
-    Returns names of top-level directories under repo root.
-    """
     out = _run(['svn', 'ls', root_url]).stdout.splitlines()
-    # svn ls ends directories with a trailing slash
-    dirs = [line.strip('/') for line in out if line.endswith('/')]
-    # skip control/hidden names just in case
-    return [d for d in dirs if d and not d.startswith('.') and d.lower() != '.svn']
+    return [line.strip('/').strip() for line in out if line.strip().endswith('/')]
+
+def svn_cat_text(url: str) -> Optional[str]:
+    try:
+        return _run(['svn', 'cat', url]).stdout
+    except Exception:
+        return None
+
+def svn_cat_binary(url: str) -> Optional[bytes]:
+    try:
+        cp = subprocess.run(['svn', 'cat', url], check=True, capture_output=True)
+        return cp.stdout
+    except Exception:
+        return None
 
 def svn_export_dir(url: str, dest: Path):
     """
@@ -284,3 +332,98 @@ def add_comment(demo_root: Path, user: str, text: str):
         "timestamp": datetime.utcnow().isoformat()
     })
     f.write_text(json.dumps(comments, indent=2), encoding='utf-8')
+
+def _ensure_dir(p: Path): p.mkdir(parents=True, exist_ok=True)
+
+def thumb_cache_path(base: Path, slug: str, ext: str = 'png') -> Path:
+    _ensure_dir(base)
+    return base / f"{slug}.{ext}"
+
+
+def svn_list_tree(repo_url: str) -> list[dict]:
+    cp = _run(['svn', 'list', '-R', '--xml', repo_url])
+    root = ET.fromstring(cp.stdout)
+    items = []
+    for entry in root.findall('.//entry'):
+        kind = entry.get('kind')   # 'file' or 'dir'
+        name_el = entry.find('name')
+        size_el = entry.find('size')
+        if name_el is None: continue
+        rel = (name_el.text or '').replace('\\', '/')
+        if not rel: continue
+        items.append({
+            'relpath': rel,
+            'size': int(size_el.text) if size_el is not None and size_el.text and size_el.text.isdigit() else 0,
+            'is_dir': (kind == 'dir')
+        })
+    return items
+
+def build_tree_from_list(flat_items: list[dict], exclude_globs: List[str]):
+    files = [i for i in flat_items if not i['is_dir']]
+
+    def excluded(rel: str) -> bool:
+        return any(fnmatch.fnmatch(rel, pat) for pat in exclude_globs)
+    files = [i for i in files if not excluded(i['relpath'])]
+
+    tree = {'name': '', 'type': 'dir', 'children': {}, 'size': 0, '_parent': None}
+    for it in files:
+        rel = it['relpath'].strip('/')
+        parts = rel.split('/') if rel else []
+        node = tree
+        for idx, part in enumerate(parts):
+            is_last = (idx == len(parts)-1)
+            if is_last:
+                node.setdefault('children', {})
+                node['children'].setdefault(part, {
+                    'name': part,
+                    'type': 'file',
+                    'relpath': rel,
+                    'size': it['size']
+                })
+                p = node
+                while p is not None:
+                    p['size'] = p.get('size', 0) + it['size']
+                    p = p.get('_parent')
+            else:
+                node.setdefault('children', {})
+                if part not in node['children']:
+                    node['children'][part] = {
+                        'name': part, 'type': 'dir',
+                        'children': {}, 'size': 0, '_parent': node
+                    }
+                node = node['children'][part]
+
+    def finalize(n):
+        n.pop('_parent', None)
+        if isinstance(n.get('children'), dict):
+            kids = list(n['children'].values())
+            for c in kids: finalize(c)
+            kids.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
+            n['children'] = kids
+    finalize(tree)
+    return tree
+
+def load_comments_from_svn(demo_url: str) -> list[dict]:
+    """
+    Try comments.json first, else comments.txt (lines). Returns a list of {user,text,timestamp?}.
+    """
+    # JSON form
+    js = svn_cat_text(f"{demo_url}/comments.json")
+    if js:
+        try:
+            data = json.loads(js)
+            return data if isinstance(data, list) else []
+        except Exception:
+            pass
+
+    # TXT fallback: each non-empty line is a comment; no user/timestamp
+    txt = svn_cat_text(f"{demo_url}/comments.txt")
+    if txt:
+        out = []
+        for line in txt.splitlines():
+            t = line.strip()
+            if t:
+                out.append({"user": "unknown", "text": t})
+        return out
+
+    return []

@@ -15,12 +15,6 @@
       <input type="text" name="q" value="{{ q|default:'' }}" placeholder="Search demos..." />
       <button>Search</button>
     </form>
-
-    <!-- Resync button -->
-    <form method="post" action="/resync/" style="margin-left: auto;">
-      {% csrf_token %}
-      <button class="btn" style="margin-left:12px;">Resync from SVN</button>
-    </form>
   </header>
 
   <main class="container">

@@ -21,8 +21,8 @@
   <div class="grid">
     {% for d in demos %}
       <a class="card" href="/demo/{{ d.slug }}/">
-        {% if d.thumbnail %}
-          <img src="/thumb/{{ d.slug }}/" alt="thumbnail" />
+        {% if d.thumbnail_path %}
+          <img src="{% url 'thumb' d.slug %}" alt="thumbnail">
         {% else %}
           <div class="thumb-placeholder">No image</div>
         {% endif %}

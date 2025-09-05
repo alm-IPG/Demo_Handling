@@ -2,9 +2,9 @@
 {% block title %}{{ demo.title }} – Demo Portal{% endblock %}
 {% block content %}
   <article class="detail">
-    <header class="detail-header three-col">
-      {% if demo.thumbnail %}
-        <img class="hero" src="/thumb/{{ demo.slug }}/" alt="thumbnail" />
+    <header class="detail-header">
+      {% if demo.thumbnail_path %}
+        <img class="hero" src="{% url 'thumb' demo.slug %}" alt="thumbnail" />
       {% else %}
         <div class="hero placeholder"></div>
       {% endif %}
@@ -16,16 +16,7 @@
           {% if cm_bucket %}<span class="cm">{{ cm_bucket }}</span>{% endif %}
           {% for t in demo.tags %}<span class="tag">{{ t }}</span>{% endfor %}
         </div>
-
-        <div class="actions">
-          <a class="btn" href="/demo/{{ demo.slug }}/download-all/">Download all (zip)</a>
-          {% if demo %}
-          <form method="post" action="{% url 'resync_demo' demo.slug %}" style="display:inline-block; margin-left:8px;">
-            {% csrf_token %}
-            <button class="btn" type="submit">Resync this demo</button>
-          </form>
-          {% endif %}
-        </div>
+        {# actions removed per 4.2 #}
       </div>
 
       <aside class="info-panel">
@@ -57,7 +48,7 @@
       {% include 'demos/_tree.html' with node=tree %}
     </section>
 
-    <!-- Comments -->
+    <!-- Comments (read-only) -->
     <section class="comments">
       <h2>Comments</h2>
 
@@ -65,20 +56,22 @@
         <ul class="comment-list">
           {% for c in comments %}
             <li>
-              <div class="meta">{{ c.user }} – {{ c.timestamp|date:"Y-m-d H:i" }}</div>
+              <div class="meta">
+                {{ c.user|default:"" }}
+                {% if c.timestamp %} – {{ c.timestamp }}{% endif %}
+              </div>
               <div class="text">{{ c.text }}</div>
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        <p>No comments yet.</p>
+        <p class="muted">No comments yet.</p>
       {% endif %}
 
-      <form method="post" action="{% url 'post_comment' demo.slug %}" class="comment-form">
-        {% csrf_token %}
-        <textarea name="comment" rows="3" placeholder="Write a comment..." required></textarea>
-        <br />
-        <button class="btn" type="submit">Post comment</button>
+      <!-- Read-only placeholder (disabled) -->
+      <form class="comment-form">
+        <textarea rows="3" placeholder="Comments are read-only for now." disabled></textarea><br />
+        <button class="btn" type="button" disabled>Post comment</button>
       </form>
     </section>
   </article>
